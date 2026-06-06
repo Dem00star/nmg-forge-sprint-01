@@ -1,0 +1,29 @@
+{
+  "site": "https://nmgtechnologies.com",
+  "urls_crawled": 456,
+  "summary": {
+    "total_issues": 353,
+    "by_severity": {
+      "High": 6,
+      "Medium": 347,
+      "Low": 0
+    }
+  },
+  "issues": [
+    {
+      "type": "broken_link",
+      "severity": "High",
+      "affected_urls": [],
+      "count": 6
+    },
+    {
+      "type": "missing_h1",
+      "severity": "Medium",
+      "affected_urls": [],
+      "count": 347
+    }
+  ],
+  "run_meta": {
+    "timestamp": "2026-06-06"
+  }
+}
