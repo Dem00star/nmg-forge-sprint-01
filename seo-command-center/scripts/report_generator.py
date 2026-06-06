@@ -1,93 +1,66 @@
 import json
-from weasyprint import HTML
+from fpdf import FPDF
 
-def generate_html_and_pdf(json_string):
+
+def generate_html_and_pdf(json_string: str) -> None:
     """
-    Parses a JSON string and generates an HTML report and a PDF version.
+    Parse a JSON string and generate:
+      1. An HTML file (final_report.html)
+      2. A PDF file (final_report.pdf) using fpdf2
     """
-    # Parse the JSON string into a dictionary
-    data = json.loads(json_string)
+    try:
+        data = json.loads(json_string)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Invalid JSON supplied: {exc}") from exc
 
-    site_name = data.get('site', 'SEO Report')
-    urls_crawled = data.get('urls_crawled', 0)
-    summary = data.get('summary', {})
-    total_issues = summary.get('total_issues', 0)
-    issues = data.get('issues', [])
+    # ---------- HTML generation ----------
+    html_parts = []
+    site = data.get("site")
+    if site:
+        html_parts.append(f"<h1>{site}</h1>")
 
-    # Create the issues list items
-    issues_list_html = ""
-    for issue in issues:
-        issues_list_html += f"<li><strong>{issue.get('type', 'N/A')}</strong>: {issue.get('severity', 'N/A')} (Count: {issue.get('count', 0)})</li>"
+    urls_crawled = data.get("urls_crawled", "")
+    if urls_crawled:
+        html_parts.append(f"<p>Urls crawled: {urls_crawled}</p>")
 
-    # HTML template with inline CSS
-    html_content = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="UTF-8">
-        <style>
-            body {{
-                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                padding: 40px;
-                line-height: 1.6;
-                color: #333;
-                max-width: 800px;
-                margin: auto;
-            }}
-            h1 {{
-                color: #2c3e50;
-                border-bottom: 2px solid #2c3e50;
-                padding-bottom: 10px;
-            }}
-            .summary-box {{
-                background-color: #f8f9fa;
-                border: 1px solid #dee2e6;
-                border-radius: 8px;
-                padding: 20px;
-                margin-bottom: 30px;
-            }}
-            .summary-box h2 {{
-                margin-top: 0;
-                color: #495057;
-            }}
-            ul {{
-                list-style-type: none;
-                padding: 0;
-            }}
-            li {{
-                padding: 10px 0;
-                border-bottom: 1px solid #eee;
-            }}
-            li:last-child {{
-                border-bottom: none;
-            }}
-            .severity-high {{ color: #d9534f; }}
-            .severity-medium {{ color: #f0ad4e; }}
-            .severity-low {{ color: #5bc0de; }}
-        </style>
-    </head>
-    <body>
-        <h1>{site_name}</h1>
+    summary = data.get("summary", {})
+    total_issues = summary.get("total_issues")
+    if total_issues is not None:
+        html_parts.append(f"<p>Total issues: {total_issues}</p>")
 
-        <div class="summary-box">
-            <h2>Executive Summary</h2>
-            <p><strong>URLs Crawled:</strong> {urls_crawled}</p>
-            <p><strong>Total Issues Found:</strong> {total_issues}</p>
-        </div>
+    issues = data.get("issues", [])
+    if issues:
+        html_parts.append("<ul>")
+        for issue in issues:
+            issue_type = issue.get("type", "")
+            severity = issue.get("severity", "")
+            count = issue.get("count", "")
+            html_parts.append(f"<li>{issue_type}: {severity} - {count}</li>")
+        html_parts.append("</ul>")
 
-        <h2>Issue Details</h2>
-        <ul>
-            {issues_list_html}
-        </ul>
-    </body>
-    </html>
-    """
+    html_output = "".join(html_parts)
 
-    # Save HTML to root directory
     with open("final_report.html", "w", encoding="utf-8") as f:
-        f.write(html_content)
+        f.write(html_output)
 
-    # Convert HTML to PDF using weasyprint
-    HTML(string=html_content).write_pdf("final_report.pdf")
+    # ---------- PDF generation ----------
+    pdf = FPDF()
+    pdf.add_page()
 
-    return "Reports generated successfully: final_report.html and final_report.pdf"
+    pdf.set_font("Arial", size=16)
+    pdf.cell(0, 10, txt=site or "", ln=True)
+
+    pdf.set_font("Arial", size=14)
+    pdf.cell(0, 10, txt="Executive Summary", ln=True)
+
+    pdf.set_font("Arial", size=12)
+    pdf.cell(0, 10, txt=str(urls_crawled), ln=True)
+    pdf.cell(0, 10, txt=str(total_issues) if total_issues is not None else "", ln=True)
+
+    for issue in issues:
+        issue_type = issue.get("type", "")
+        severity = issue.get("severity", "")
+        count = issue.get("count", "")
+        pdf.cell(0, 10, txt=f"{issue_type}: {severity} - {count}", ln=True)
+
+    pdf.output("final_report.pdf")
