@@ -18,7 +18,7 @@ Format:
   included; added an indexable+200 filter (per rulebook).
 - `[12:40]` Dashboard wasn't updating live → MCP tool wasn't emitting the SSE event; added
   `_emit("issue", row)` in extract.
-
+- `[01:25]` Caught Schema Hallucination: The `pptx_generator.py` sub-agent hallucinated the key `site_key` instead of `site` for the title slide. Diagnosed the mismatch with the `report.schema.json` contract and explicitly prompted the agent to correct it.
 ---
 
 ## My log
