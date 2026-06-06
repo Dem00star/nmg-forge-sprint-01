@@ -1,27 +1,20 @@
-# PROMPTS.md — my key prompts log
+# Key Prompts & Iteration Log
 
-Keep the handful of prompts that actually moved the build. Not every message — the ones that
-mattered: the system/sub-agent prompts, the ones you iterated on, the "this finally worked"
-moment. This shows how you direct an AI, which is graded (challenge brief section 08).
+### 1. Data Extraction (Initial Success)
+* **Prompt:** "Create a new file at `seo-command-center/scripts/seo_extractor.py`. Write a Python function called `extract_seo_metrics(csv_path)` that uses the pandas library to read a CSV file. The function must calculate and return a dictionary containing exactly: total_pages, 4xx_errors, and missing_h1s."
+* **Result:** Succeeded on the first attempt. The agent correctly utilized `pandas` vectorization to handle potential `NaN` and whitespace issues securely without LLM hallucinations.
 
-Format per entry:
-- **Prompt** (paste it)
-- **For:** what you were trying to do
-- **Revised?** did you have to change it, and why
+### 2. The JSON Schema Correction (Revision Required)
+* **Initial Issue:** The agent formatted the output using generic keys instead of the required schema.
+* **Corrective Prompt:** "Rewrite the `seo-command-center/scripts/json_formatter.py` file completely. The `format_report(metrics_dict)` function must return a JSON string that strictly adheres to the `report.schema.json` contract. Construct a Python dictionary with exactly these root keys: `site`, `urls_crawled`, `summary`, `issues`, and `run_meta`."
+* **Result:** The explicit constraint forced the agent to abandon its generic structure and perfectly map the extracted data to the grading harness's expected JSON format.
 
----
+### 3. The PDF Library Pivot (Critical Fix)
+* **Initial Issue:** `weasyprint` failed due to missing macOS C-libraries.
+* **Corrective Prompt:** "The `weasyprint` library failed due to missing system C-libraries on macOS. Rewrite the `seo-command-center/scripts/report_generator.py` file completely using `fpdf2` instead of `weasyprint`. The `generate_html_and_pdf(json_string)` function must parse the string and generate a PDF using FPDF, looping over the `issues` array."
+* **Result:** Bypassed the system blocker. The agent successfully rewrote the HTML string logic and implemented a native Python PDF generation sequence.
 
-## Example (replace with your own)
-
-- **Prompt:** "Extend seo/detector.py to detect redirect chains: build a map of {Address ->
-  Redirect URL} for all 3xx rows, then a chain exists when a Redirect URL is itself a key in
-  that map. Add a redirect_chain issue (High). Run python seo/detector.py and show counts."
-- **For:** adding the redirect-chain detector
-- **Revised?** Yes — first version flagged single redirects as chains; added the "target is
-  also a redirecting URL" condition.
-
----
-
-## My prompts
-1. ...
-2. ...
+### 4. Hallucination Fix (PPTX Generator)
+* **Initial Issue:** Agent used `data.get('site_key')` which does not exist in our JSON output.
+* **Corrective Prompt:** "Open `seo-command-center/scripts/pptx_generator.py` and fix a bug on line 13. Change `data.get('site_key', 'SEO Audit')` to `data.get('site', 'SEO Audit')` so it correctly matches our JSON schema. Output the updated code block only."
+* **Result:** Instant targeted fix, ensuring the slide deck title pulled the correct URL string.

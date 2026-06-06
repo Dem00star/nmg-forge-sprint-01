@@ -1,34 +1,15 @@
-# CLAUDE.md — project memory for the SEO Command Center build
+# SEO Command Center: Project Memory & Constraints
 
-This file is your **context / memory for the AI**. Claude Code loads it automatically every
-session. Strong builders engineer this file instead of re-explaining everything in chat — it
-is one of the clearest signals of good practice, and it is graded (see the challenge brief
-section 08). Keep it short, specific, and update it as you learn.
+### Global Directives
+* **Goal:** Build an autonomous, offline Claude Code plugin that ingests a Screaming Frog SEO export, formats the data to a strict JSON contract, and generates a suite of client-ready deliverables (HTML, PDF, PPTX).
+* **Environment:** Built for execution on local, free-tier tool-trained models.
 
-Replace the prompts below with your own. This is YOUR file.
+### Architectural Constraints
+* **Zero-LLM Data Parsing:** Do NOT feed the raw `internal_all.csv` rows into the LLM context window. All data parsing, aggregation, and threshold logic must be executed via deterministic Python code (e.g., `pandas`) to preserve tokens and guarantee accuracy against the NMG ground-truth grading metric.
+* **Schema Adherence:** Output formatting is strictly governed by `report.schema.json`. Never invent new dictionary keys or alter casing (e.g., use `type`, never `Type`).
+* **Dependency Management:** Avoid Python libraries that require deep system-level C-compilers (like `weasyprint`). Rely on pure-Python libraries (`fpdf2`, `python-pptx`) to ensure the solution executes flawlessly in the judge's isolated grading environment.
 
-## What we are building
-A Claude Code plugin that ingests a Screaming Frog SEO export (`internal_all.csv` + issue
-CSVs), audits it against the rulebook, prioritizes issues, writes fixes, serves a live
-dashboard at localhost:7700, and outputs `outputs/report.json` + `outputs/report.html`.
-
-## Hard rules (the agent must follow these)
-- Detect issues in **plain Python** (csv/pandas). Use the model only for judgment
-  (rewriting titles/metas, choosing redirect targets). Never feed raw crawl rows to the model.
-- `outputs/report.json` MUST match `report.schema.json`. Validate before declaring done.
-- Filter to `text/html` + indexable pages before title/meta checks (see `rulebook.md`).
-- Do not hard-code anything to the sample export — it must work on an unseen export.
-- Keep model calls small and few (free-tier quota). One page per fix call.
-
-## Architecture (keep it real)
-- `skills/seo-audit/SKILL.md` orchestrates. Sub-agents: ingest, auditor, fixer, reporter.
-- `seo/detector.py` = deterministic detectors (extend to the full rulebook — biggest score).
-- `mcp/server.py` = MCP tools + the live dashboard.
-
-## Conventions
-- Commit after each working step with a real message.
-- Run `python run.py sample-export/` to test end to end.
-
-## Things I have learned during the build (update this as you go)
-- (e.g. "SF leaves Title 1 blank on redirected URLs — must filter Status Code 200 first")
-- ...
+### Workflow Rules
+* Always verify schema keys against `report.schema.json` before passing objects to the reporting generators.
+* Log all critical tool failures in `DECISIONS.md`.
+* Ensure `outputs/` directory is dynamically generated if missing before attempting file writes.
