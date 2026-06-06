@@ -1,36 +1,90 @@
 import os
-import shutil
+import sys
+import json
+import csv
+import time
+
+# Import all sub-agent scripts
 import seo_extractor
 import json_formatter
 import report_generator
 import pptx_generator
+import fix_generator
+
+def update_dashboard_state(status_msg, progress_percent):
+    """
+    Step 4 Requirement: Writes state for the local MCP dashboard to consume.
+    It mimics an SSE broadcast by writing to a local state file and printing to stdout.
+    """
+    print(f"[DASHBOARD_UPDATE] {progress_percent}% : {status_msg}")
+    try:
+        with open("mcp_state.json", "w", encoding="utf-8") as f:
+            json.dump({"status": status_msg, "progress": progress_percent}, f)
+    except Exception as e:
+        print(f"Warning: Could not update dashboard state: {e}")
+
+def export_champion_artifacts(fixes_dict, output_dir="outputs"):
+    """
+    Step 3 Requirement: Exports the AI-generated fixes to client-ready CSV artifacts.
+    """
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # Export Titles CSV
+    titles = fixes_dict.get("titles", [])
+    if titles:
+        with open(os.path.join(output_dir, "fixes_titles.csv"), "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=["url", "old", "new"])
+            writer.writeheader()
+            writer.writerows(titles)
+            
+    # Export Redirect Map CSV
+    redirects = fixes_dict.get("redirect_map", [])
+    if redirects:
+        with open(os.path.join(output_dir, "fixes_redirects.csv"), "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=["from", "to", "reason"])
+            writer.writeheader()
+            writer.writerows(redirects)
 
 def main(csv_path):
-    # Create outputs folder in the root directory if it doesn't already exist
-    if not os.path.exists('outputs'):
-        os.makedirs('outputs')
+    """Master orchestrator for the Champion Tier SEO pipeline."""
+    start_time = time.time()
+    output_dir = "outputs"
+    os.makedirs(output_dir, exist_ok=True)
 
-    # Call seo_extractor.extract_seo_metrics(csv_path) and store the dictionary
-    metrics = seo_extractor.extract_seo_metrics(csv_path)
+    update_dashboard_state("Starting SEO Audit Pipeline...", 0)
 
-    # Call json_formatter.format_report() with that dictionary to get the JSON string
-    json_string = json_formatter.format_report(metrics)
+    # 1. Deterministic Extraction
+    update_dashboard_state("Ingesting CSV data...", 15)
+    metrics_dict, issues_list = seo_extractor.extract_seo_metrics(csv_path)
 
-    # Save that JSON string to a file at outputs/report.json
-    with open('outputs/report.json', 'w') as f:
-        f.write(json_string)
+    # 2. AI Fix Generation (Calling the new fix_generator.py)
+    update_dashboard_state("AI generating title fixes and redirect maps...", 45)
+    fixes_dict = fix_generator.generate_all_fixes(issues_list)
 
-    # Call report_generator.generate_html_and_pdf(json_string)
-    report_generator.generate_html_and_pdf(json_string)
+    # 3. Strict JSON Formatting
+    update_dashboard_state("Formatting strictly to schema...", 75)
+    duration_sec = int(time.time() - start_time)
+    
+    # Pass metrics, issues, fixes, and duration to the formatter
+    json_payload = json_formatter.format_report(metrics_dict, issues_list, fixes_dict, duration_sec)
+    
+    # Write the master JSON contract
+    with open(os.path.join(output_dir, "report.json"), "w", encoding="utf-8") as f:
+        f.write(json_payload)
 
-    # Call pptx_generator.generate_pptx(json_string)
-    pptx_generator.generate_pptx(json_string)
+    # 4. Generate Final Deliverables (PDF, HTML, PPTX, and CSV Fixes)
+    update_dashboard_state("Exporting client deliverables...", 90)
+    report_generator.generate_html_and_pdf(json_payload)
+    pptx_generator.generate_pptx(json_payload)
+    
+    # Trigger the CSV artifact generator
+    export_champion_artifacts(fixes_dict, output_dir)
 
-    # Move final_report.html, final_report.pdf, and final_report.pptx from the root directory into the outputs/ directory
-    files_to_move = ['final_report.html', 'final_report.pdf', 'final_report.pptx']
-    for file in files_to_move:
-        if os.path.exists(file):
-            shutil.move(file, os.path.join('outputs', file))
+    update_dashboard_state("Audit Complete!", 100)
+    print("✅ Pipeline execution finished successfully.")
 
 if __name__ == "__main__":
-    main("sample-export/internal_all.csv")
+    if len(sys.argv) > 1:
+        main(sys.argv[1])
+    else:
+        print("Please provide the path to internal_all.csv")
